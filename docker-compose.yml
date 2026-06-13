@@ -1,0 +1,69 @@
+services:
+  lightrag-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lightrag-core:latest
+    container_name: lightrag-core
+    ports:
+      - "8000:8000"
+    environment:
+      # LLM Configuration
+      - LIGHTRAG_LLM_PROVIDER=ollama
+      - LIGHTRAG_LLM_MODEL=llama3
+      - LIGHTRAG_LLM_BASE_URL=http://ollama:11434
+      - LIGHTRAG_LLM_TIMEOUT=120
+
+      # Embedding Configuration
+      - LIGHTRAG_EMBEDDING_MODEL=BAAI/bge-m3
+
+      # Vector Store Configuration
+      - LIGHTRAG_VECTOR_STORE_TYPE=faiss
+
+      # Database Configuration
+      - LIGHTRAG_DB_PATH=/app/data/lightrag.db
+
+      # Debug Mode
+      - LIGHTRAG_DEBUG=false
+    volumes:
+      - lightrag-data:/app/data
+    networks:
+      - lightrag-network
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # Ollama service (optional - can use external Ollama instance)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: lightrag-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - lightrag-network
+    restart: unless-stopped
+    # Uncomment to pull models automatically on startup
+    # entrypoint: >
+    #   sh -c "ollama serve &
+    #          sleep 10
+    #          ollama pull llama3
+    #          ollama pull nomic-embed-text
+    #          wait"
+
+volumes:
+  lightrag-data:
+    driver: local
+  ollama-data:
+    driver: local
+
+networks:
+  lightrag-network:
+    driver: bridge

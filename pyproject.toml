@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lightrag-core"
+version = "0.1.0"
+description = "A lightweight, extensible, and portable RAG Framework."
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["rag", "llm", "embedding", "retrieval", "ai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.0.0",
+    "httpx>=0.24.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+faiss = ["faiss-cpu>=1.7.0"]
+qdrant = ["qdrant-client>=1.7.0"]
+ollama = ["ollama>=0.1.0"]
+openai = ["openai>=1.0.0"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/lightrag-core"
+Documentation = "https://github.com/your-org/lightrag-core#readme"
+Issues = "https://github.com/your-org/lightrag-core/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lightrag_core*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+pythonpath = ["."]
+addopts = "--basetemp=.pytest-tmp -p no:cacheprovider"

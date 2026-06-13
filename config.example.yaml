@@ -1,0 +1,33 @@
+# LightRAG-Core example configuration
+#
+# Copy this file to config.yaml for local development.
+# Do not commit real API keys or private service credentials.
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  base_url: https://api.deepseek.com/v1
+  api_key: ""
+  temperature: 0.7
+  max_tokens: 1024
+  top_p: 0.9
+  timeout: 120
+
+embedding:
+  model: BAAI/bge-m3
+  dimension: 1024
+
+vector_store:
+  type: faiss
+  dimension: 1024
+  index_path: ""
+
+chunker:
+  chunk_size: 500
+  chunk_overlap: 50
+
+database:
+  type: sqlite
+  path: lightrag.db
+
+debug: false

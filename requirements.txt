@@ -1,0 +1,32 @@
+# Core dependencies
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+sqlalchemy>=2.0.0
+pydantic>=2.0.0
+httpx>=0.24.0
+numpy>=1.24.0
+pyyaml>=6.0.0
+python-multipart>=0.0.9
+
+# Vector Store (MVP: FAISS)
+faiss-cpu>=1.7.0
+
+# Optional: Qdrant (Phase 4)
+# qdrant-client>=1.7.0
+
+# Optional: Redis (Phase 4)
+# redis>=5.0.0
+
+# LLM Providers
+ollama>=0.1.0
+openai>=1.0.0
+
+# Document Parsers
+pypdf>=4.0.0
+
+# Development
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=23.0.0
+ruff>=0.1.0
+mypy>=1.0.0
