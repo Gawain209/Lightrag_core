@@ -16,6 +16,7 @@ LightRAG-Core 是一个轻量级、可扩展的 RAG 框架（MVP 阶段，v0.1.0
 pip install -r requirements.txt
 pip install sentence-transformers          # 生产级语义检索所需的模型
 uvicorn lightrag_core.api.main:app --host 127.0.0.1 --port 8000
+python -m lightrag_core.ui.gradio_app       # Gradio Web UI (内嵌 API + UI 一键启动)
 ```
 
 ### 测试
@@ -65,6 +66,7 @@ python -m black . --check     # 格式检查
 | 解析器 | `lightrag_core/ingestion/parser/` | `TextParser`、`PDFParser`（实验性） |
 | API | `lightrag_core/api/` | FastAPI 应用 + Pydantic v2 schemas |
 | 配置 | `lightrag_core/config/settings.py` | YAML + 环境变量（env 优先级 > YAML > 默认值） |
+| Web UI | `lightrag_core/ui/` | Gradio Web UI（chat、文件上传、知识库管理），thin layer on API |
 
 ### 数据流
 
@@ -79,12 +81,37 @@ python -m black . --check     # 格式检查
 - **启动时** 急切初始化 embedding 以提前暴露模型加载失败
 - 测试中通过 `conftest.py` 的 `mock_llm` fixture 替换全局 `_llm` 单例
 
+### Gradio UI 架构
+
+UI 层（`lightrag_core/ui/gradio_app.py`）是 API 之上的薄封装，**不含任何 RAG 逻辑**。所有操作通过 `_api()` → httpx → FastAPI 端点完成：
+- `rag_chat()` → `POST /query`
+- `upload_file()` / `index_text()` → `POST /documents` 或 `/documents/upload`
+- `create_kb()` → `POST /knowledge-bases`
+
+`_client` 默认超时 120s。`main()` 在 daemon 线程启动 uvicorn 后启动 Gradio，UI 默认端口 7860。
+
+Gradio 6.x API 变更（从 5.x 升级时需注意）：
+- `gr.ChatInterface` 移除: `type`, `clear_btn`, `retry_btn`, `undo_btn`, `placeholder`
+- `gr.Blocks()` 移除 `css` 和 `theme` 参数，改为 `demo.launch(css=..., theme=...)`
+
 ## 配置
 
 - 配置文件: `config.yaml`（git 未跟踪），模板见 `config.example.yaml`
-- 环境变量优先级高于 YAML: `LIGHTRAG_LLM_PROVIDER`、`LIGHTRAG_LLM_MODEL`、`LIGHTRAG_LLM_API_KEY`、`LIGHTRAG_LLM_BASE_URL`、`LIGHTRAG_EMBEDDING_MODEL`、`LIGHTRAG_DB_PATH`、`LIGHTRAG_DEBUG` 等
+- 环境变量优先级高于 YAML: `LIGHTRAG_LLM_PROVIDER`、`LIGHTRAG_LLM_MODEL`、`LIGHTRAG_LLM_API_KEY`、`LIGHTRAG_LLM_BASE_URL`、`LIGHTRAG_EMBEDDING_MODEL`、`LIGHTRAG_DB_PATH`、`LIGHTRAG_DEBUG`、`LIGHTRAG_API_BASE`、`DEEPSEEK_API_KEY` 等
 - API key 等敏感信息只能通过环境变量注入，禁止写入 `config.yaml` 或源码
 - 编程方式使用: `from lightrag_core.config.settings import get_config`
+
+### 配置加载时序（重要）
+
+`load_config()` 内部使用模块级 `_config` 单例缓存，**第一次调用之后环境变量的变更不会生效**。因此环境变量必须在任何 `lightrag_core` 模块导入之前设置。
+
+Windows 上 Git Bash 设置的环境变量（`export LIGHTRAG_LLM_API_KEY=xxx`）**不会传递到 Python 子进程**。解决方案：
+- 使用 PowerShell 的 `$env:LIGHTRAG_LLM_API_KEY="xxx"` 在启动 Python 前设置
+- 或在启动脚本中通过 `os.environ["LIGHTRAG_LLM_API_KEY"] = "xxx"` 在 import 之前设置
+
+### DeepSeek API Key 回退链
+
+`DeepSeekProvider.__init__` 的 api_key 回退：参数 `api_key` → 环境变量 `DEEPSEEK_API_KEY`（注意不是 `LIGHTRAG_LLM_API_KEY`）。配置系统通过 `LIGHTRAG_LLM_API_KEY` → `config.llm.api_key` 这条链路将 key 传给构造函数参数，因此正常情况下设置 `LIGHTRAG_LLM_API_KEY` 即可。`DEEPSEEK_API_KEY` 仅作为不通过配置系统的备用回退。
 
 ## 编码规范
 

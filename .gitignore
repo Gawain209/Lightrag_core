@@ -141,7 +141,10 @@ config.yaml
 *.sqlite
 .pytest-tmp/
 .pytest-tmp-*/
+.pytest-tmp-serial/
+.test-tmp/
 .uvicorn.*.log
 .claude/
+.playwright-mcp/
 .vectorstores/
 .knowledge_bases/

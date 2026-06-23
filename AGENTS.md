@@ -66,6 +66,10 @@ Deployment
 
 - Docker
 
+Web UI
+
+- Gradio
+
 ---
 
 ## Architecture Principles

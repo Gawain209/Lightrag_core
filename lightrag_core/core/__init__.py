@@ -78,12 +78,18 @@ class BaseRetriever(ABC):
     """Abstract base class for retrievers."""
 
     @abstractmethod
-    def retrieve(self, query: str, top_k: int = 5) -> List[dict[str, Any]]:
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[dict[str, Any]]:
         """Retrieve relevant documents for a query.
 
         Args:
             query: The search query.
             top_k: Number of results to return.
+            filters: Optional exact-match metadata filters.
 
         Returns:
             List of retrieval results.

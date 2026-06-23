@@ -45,8 +45,9 @@ _retriever: Optional[VectorRetriever] = None
 _chunker: Optional[FixedSizeChunker] = None
 _llm: Optional[OllamaProvider] = None
 
-# Thread-safety: locks for lazy singleton init and shared mutable state
-_init_lock = threading.Lock()
+# Thread-safety: locks for lazy singleton init and shared mutable state.
+# Lazy initializers call each other, so the init lock must be re-entrant.
+_init_lock = threading.RLock()
 _chunk_lock = threading.Lock()
 
 # Bounded LRU cache for chunk content to prevent unbounded memory growth.

@@ -17,6 +17,8 @@ LightRAG-Core 提供 RESTful API，支持两种使用模式：
 http://localhost:8000/api/v1
 ```
 
+> **Note (MVP):** The current v0.1.0 API uses root-level paths (e.g. `/query`, `/knowledge-bases`, `/documents`) without the `/api/v1` prefix. The `/api/v1` prefix scheme documented here is the target for a future version. Refer to the code in `lightrag_core/api/main.py` for the current actual routes.
+
 ---
 
 ## Authentication

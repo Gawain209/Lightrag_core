@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-_TEMP_DIR = Path(__file__).resolve().parents[1] / ".pytest-tmp"
-_TEMP_DIR.mkdir(exist_ok=True)
+_TEMP_ROOT = Path(__file__).resolve().parents[1] / ".test-tmp"
+_TEMP_DIR = _TEMP_ROOT / "temp"
+_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
 os.environ.setdefault("TMP", str(_TEMP_DIR))
 os.environ.setdefault("TEMP", str(_TEMP_DIR))
