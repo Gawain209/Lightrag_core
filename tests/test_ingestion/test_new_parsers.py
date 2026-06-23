@@ -10,6 +10,8 @@ from lightrag_core.ingestion.parser.docx_parser import WordParser
 from lightrag_core.ingestion.parser.csv_parser import CSVParser
 from lightrag_core.ingestion.parser.json_parser import JSONParser
 from lightrag_core.ingestion.parser.html_parser import HTMLParser
+from lightrag_core.ingestion.parser.doc_parser import DocParser
+from lightrag_core.ingestion.parser.xlsx_parser import XlsxParser
 
 
 class TestWordParser:
@@ -170,3 +172,65 @@ class TestHTMLParser:
         assert parser.supports("page.html") is True
         assert parser.supports("page.htm") is True
         assert parser.supports("page.txt") is False
+
+
+class TestXlsxParser:
+    def test_parse_xlsx(self) -> None:
+        try:
+            from openpyxl import Workbook  # noqa: F401
+        except ImportError:
+            pytest.skip("openpyxl not installed")
+
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            temp_path = f.name
+        try:
+            from openpyxl import Workbook
+
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Sheet1"
+            ws.append(["name", "age", "city"])
+            ws.append(["Alice", 30, "NYC"])
+            ws.append(["Bob", 25, "LA"])
+            wb.save(temp_path)
+
+            parser = XlsxParser()
+            content = parser.parse(temp_path)
+            assert "name: Alice" in content
+            assert "age: 25" in content
+            assert "city: LA" in content
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_supports(self) -> None:
+        parser = XlsxParser()
+        assert parser.supports("data.xlsx") is True
+        assert parser.supports("data.xls") is False
+        assert parser.supports("data.csv") is False
+
+
+class TestDocParser:
+    def test_parse_invalid_doc(self) -> None:
+        try:
+            import olefile  # noqa: F401
+        except ImportError:
+            pytest.skip("olefile not installed")
+
+        parser = DocParser()
+        with pytest.raises(FileNotFoundError):
+            parser.parse("/nonexistent/path.doc")
+
+        with tempfile.NamedTemporaryFile(suffix=".doc", delete=False) as f:
+            f.write(b"not a valid OLE2 compound document")
+            temp_path = f.name
+        try:
+            with pytest.raises(RuntimeError):
+                parser.parse(temp_path)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_supports(self) -> None:
+        parser = DocParser()
+        assert parser.supports("file.doc") is True
+        assert parser.supports("file.docx") is False
+        assert parser.supports("file.txt") is False

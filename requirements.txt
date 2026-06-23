@@ -29,6 +29,8 @@ pypdf>=4.0.0
 python-docx>=1.0.0
 beautifulsoup4>=4.0.0
 lxml>=5.0.0
+olefile>=0.47
+openpyxl>=3.0.0
 
 # Development
 pytest>=7.0.0

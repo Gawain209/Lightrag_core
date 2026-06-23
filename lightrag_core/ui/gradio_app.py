@@ -117,14 +117,16 @@ def upload_file(file_path: str | None, kb_id: str, title: str) -> str:
     suffix = path.suffix.lower()
 
     # Formats that need parser-based extraction: upload via multipart to /documents/upload
-    if suffix in (".pdf", ".docx", ".html", ".htm", ".csv", ".json"):
+    if suffix in (".pdf", ".docx", ".doc", ".html", ".htm", ".csv", ".json", ".xlsx"):
         mime_map = {
             ".pdf": "application/pdf",
             ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".doc": "application/msword",
             ".html": "text/html",
             ".htm": "text/html",
             ".csv": "text/csv",
             ".json": "application/json",
+            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }
         try:
             with open(file_path, "rb") as f:
@@ -230,7 +232,7 @@ def create_app() -> gr.Blocks:
                 with gr.Accordion("Upload File", open=False):
                     f_input = gr.File(
                         label="Select file",
-                        file_types=[".txt", ".md", ".pdf", ".docx", ".csv", ".json", ".html", ".htm"],
+                        file_types=[".txt", ".md", ".pdf", ".docx", ".doc", ".csv", ".json", ".html", ".htm", ".xlsx"],
                     )
                     f_title = gr.Textbox(label="Title (defaults to filename)")
                     f_msg = gr.Markdown("")

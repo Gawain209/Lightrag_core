@@ -36,6 +36,8 @@ from lightrag_core.ingestion.parser.docx_parser import WordParser
 from lightrag_core.ingestion.parser.csv_parser import CSVParser
 from lightrag_core.ingestion.parser.json_parser import JSONParser
 from lightrag_core.ingestion.parser.html_parser import HTMLParser
+from lightrag_core.ingestion.parser.doc_parser import DocParser
+from lightrag_core.ingestion.parser.xlsx_parser import XlsxParser
 from lightrag_core.storage.metadata.sqlite_store import SQLiteStore
 from lightrag_core.storage.vectorstore.faiss_store import FaissStore
 
@@ -519,7 +521,7 @@ async def upload_file(
 ) -> DocumentResponse:
     """Upload a file via multipart/form-data.
 
-    Supports: .txt, .md, .pdf, .docx, .csv, .json, .html, .htm
+    Supports: .txt, .md, .pdf, .docx, .doc, .csv, .json, .html, .htm, .xlsx
     Pipeline: upload -> parse -> chunk -> embed -> store
     """
     filename = file.filename or "untitled"
@@ -541,15 +543,19 @@ async def upload_file(
     import os
     import tempfile
 
-    if suffix in (".pdf", ".docx"):
+    if suffix in (".pdf", ".docx", ".doc", ".xlsx"):
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(file_bytes)
             tmp_path = tmp.name
         try:
             if suffix == ".pdf":
                 parser = PDFParser()
-            else:
+            elif suffix == ".docx":
                 parser = WordParser()
+            elif suffix == ".doc":
+                parser = DocParser()
+            else:
+                parser = XlsxParser()
             text = parser.parse(tmp_path)
             logger.info("%s parsed: %d characters", suffix, len(text))
         finally:

@@ -4,7 +4,7 @@ LightRAG-Core is a lightweight, extensible RAG framework built with Python and F
 
 LightRAG-Core 是一个基于 Python 和 FastAPI 构建的轻量级、可扩展的 RAG 框架。
 
-The project focuses on reusable RAG framework capabilities rather than a full application platform. It does not depend on LangChain, LlamaIndex, or Haystack. The current MVP supports text/document ingestion (txt, md, pdf, docx, csv, json, html), chunking, embedding (BGE-M3), hybrid retrieval (Vector + BM25 + RRF fusion), CrossEncoder reranking (BGE-Reranker), FAISS-based vector search, SQLite metadata storage, pluggable LLM providers, REST APIs, and a Gradio Web UI.
+The project focuses on reusable RAG framework capabilities rather than a full application platform. It does not depend on LangChain, LlamaIndex, or Haystack. The current MVP supports text/document ingestion (txt, md, pdf, docx, doc, csv, json, html, xlsx), chunking, embedding (BGE-M3), hybrid retrieval (Vector + BM25 + RRF fusion), CrossEncoder reranking (BGE-Reranker), FAISS-based vector search, SQLite metadata storage, pluggable LLM providers, REST APIs, and a Gradio Web UI.
 
 项目专注于可复用的 RAG 框架能力，而非完整的应用平台。不依赖 LangChain、LlamaIndex 或 Haystack。当前 MVP 支持文本/文档导入（txt、md、pdf、docx、csv、json、html）、分块、向量嵌入（BGE-M3）、混合检索（向量 + BM25 + RRF 融合）、CrossEncoder 重排序（BGE-Reranker）、FAISS 向量检索、SQLite 元数据存储、可插拔 LLM 提供商、REST API 以及 Gradio Web UI。
 
@@ -42,11 +42,11 @@ Verified capabilities / 已验证能力：
 - SQLite metadata storage — SQLite 元数据存储
 - FAISS vector store — FAISS 向量存储
 - Knowledge-base filtering — 知识库过滤
-- Document upload for 7 file formats (txt, md, pdf, docx, csv, json, html) — 7 种文件格式上传
+- Document upload for 9 file formats (txt, md, pdf, docx, doc, csv, json, html, xlsx) — 9 种文件格式上传
 - LLM provider abstraction — LLM 提供商抽象
 - Core interface abstraction — 核心接口抽象
 - Gradio Web UI (chat, file upload, KB management) — Gradio Web UI（对话、文件上传、知识库管理）
-- Unit tests (64 tests covering core, storage, API, ingestion) — 64 项单元测试
+- Unit tests (68 tests covering core, storage, API, ingestion) — 68 项单元测试
 
 Known limitations / 已知局限：
 
@@ -70,7 +70,7 @@ Known limitations / 已知局限：
 | Reranking / 重排序 | BGE-Reranker CrossEncoder via `sentence-transformers` |
 | Retrieval / 检索 | Hybrid (Vector + BM25 + RRF fusion) |
 | LLM providers | Ollama, DeepSeek / OpenAI-compatible API |
-| Parsers / 解析器 | Text/Markdown, PDF, DOCX, CSV, JSON, HTML |
+| Parsers / 解析器 | Text/Markdown, PDF, DOCX, DOC, CSV, JSON, HTML, XLSX |
 | Deployment / 部署 | Docker, Docker Compose |
 
 ## Architecture
@@ -116,7 +116,7 @@ Implemented components / 已实现组件：
 | LLM provider | `OllamaProvider`, `DeepSeekProvider` |
 | Metadata store / 元数据存储 | `SQLiteStore` |
 | Chunker / 分块器 | `FixedSizeChunker` |
-| Parser / 解析器 | `TextParser`, `PDFParser`, `WordParser`, `CSVParser`, `JSONParser`, `HTMLParser` |
+| Parser / 解析器 | `TextParser`, `PDFParser`, `WordParser`, `DocParser`, `CSVParser`, `JSONParser`, `HTMLParser`, `XlsxParser` |
 
 ## Quick Start / 快速开始
 
@@ -183,7 +183,7 @@ uvicorn lightrag_core.api.main:app --host 127.0.0.1 --port 8000
 python -m lightrag_core.ui.gradio_app
 ```
 
-This starts both the FastAPI server and the Gradio Web UI at `http://127.0.0.1:7860`. The UI provides chat, file upload (.txt / .md / .pdf / .docx / .csv / .json / .html), and knowledge base management. No need to start uvicorn separately — the UI embeds the API server.
+This starts both the FastAPI server and the Gradio Web UI at `http://127.0.0.1:7860`. The UI provides chat, file upload (.txt / .md / .pdf / .docx / .doc / .csv / .json / .html / .xlsx), and knowledge base management. No need to start uvicorn separately — the UI embeds the API server.
 
 此命令同时启动 FastAPI 服务端和 Gradio Web UI（地址 `http://127.0.0.1:7860`）。UI 提供对话、文件上传（.txt / .md / .pdf / .docx / .csv / .json / .html）和知识库管理功能。无需单独启动 uvicorn——UI 内嵌了 API 服务。
 
@@ -250,10 +250,12 @@ Supported formats in the MVP / MVP 支持的文件格式：
 
 - `.txt` / `.md` — plain text / Markdown
 - `.pdf` — PDF (experimental)
-- `.docx` — Word documents
+- `.docx` — Word documents (OpenXML)
+- `.doc` — Word 97-2003 (legacy binary)
 - `.csv` — tabular data
 - `.json` — structured data
 - `.html` / `.htm` — web pages
+- `.xlsx` — Excel spreadsheets
 
 ### Query
 
@@ -400,7 +402,7 @@ The string `your-api-key` should only appear as documentation placeholder text.
 - Core interfaces (Embedding, VectorStore, Retriever, LLM, Chunker, Reranker)
 - Hybrid retrieval (Vector + BM25 + RRF fusion)
 - CrossEncoder reranking (BGE-Reranker)
-- Multi-format parsers (txt, md, pdf, docx, csv, json, html)
+- Multi-format parsers (txt, md, pdf, docx, doc, csv, json, html, xlsx)
 - REST API + Gradio Web UI
 - Docker / Docker Compose deployment
 
