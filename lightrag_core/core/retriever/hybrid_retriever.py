@@ -91,5 +91,5 @@ class HybridRetriever(BaseRetriever):
 
         return [
             {"id": doc_id, "score": score}
-            for doc_id, score in sorted_results[:top_k]
+            for doc_id, score in sorted_results
         ]

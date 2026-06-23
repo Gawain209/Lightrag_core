@@ -68,7 +68,7 @@ def _ensure_default_kb():
 
 # ── Chat function ───────────────────────────────────────────────────
 
-def rag_chat(message: str, history: list, kb_id: str) -> str:
+def rag_chat(message: str, history: list, kb_id: str, top_k: int) -> str:
     """Process a chat message through the RAG pipeline.
 
     The `history` parameter is passed by ChatInterface but we don't use it —
@@ -85,7 +85,7 @@ def rag_chat(message: str, history: list, kb_id: str) -> str:
         data = _api("/query", method="POST", json={
             "kb_id": kb_id,
             "query": message,
-            "top_k": 5,
+            "top_k": top_k,
         })
     except RuntimeError as e:
         yield str(e)
@@ -217,6 +217,10 @@ def create_app() -> gr.Blocks:
         with gr.Row():
             with gr.Column(scale=1):
                 kb_choices = _get_kb_choices()
+                top_k_slider = gr.Slider(
+                    minimum=1, maximum=50, value=20, step=1,
+                    label="Max Results",
+                )
                 kb_dropdown = gr.Dropdown(
                     choices=kb_choices,
                     value=kb_choices[0][1] if kb_choices else None,
@@ -252,7 +256,7 @@ def create_app() -> gr.Blocks:
                 chat = gr.ChatInterface(
                     fn=rag_chat,
                     chatbot=gr.Chatbot(height=520, label="Conversation"),
-                    additional_inputs=[kb_dropdown],
+                    additional_inputs=[kb_dropdown, top_k_slider],
                     additional_inputs_accordion=None,
                     title=None,
                 )

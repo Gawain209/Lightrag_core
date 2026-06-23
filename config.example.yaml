@@ -33,5 +33,7 @@ database:
 reranker:
   enabled: true
   model: BAAI/bge-reranker-base
+  score_threshold: 0.3
+  candidate_multiplier: 3
 
 debug: false

@@ -61,6 +61,8 @@ class RerankerConfig:
 
     enabled: bool = True
     model: str = "BAAI/bge-reranker-base"
+    score_threshold: float = 0.3
+    candidate_multiplier: int = 3
 
 
 @dataclass
@@ -131,6 +133,10 @@ def _apply_env_overrides(config: AppConfig) -> AppConfig:
     # Reranker
     if reranker_enabled := os.getenv("LIGHTRAG_RERANKER_ENABLED"):
         config.reranker.enabled = reranker_enabled.lower() in ("true", "1", "yes")
+    if threshold := os.getenv("LIGHTRAG_RERANKER_SCORE_THRESHOLD"):
+        config.reranker.score_threshold = float(threshold)
+    if multiplier := os.getenv("LIGHTRAG_RERANKER_CANDIDATE_MULTIPLIER"):
+        config.reranker.candidate_multiplier = int(multiplier)
 
     # Debug
     if debug := os.getenv("LIGHTRAG_DEBUG"):

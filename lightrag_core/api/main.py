@@ -304,26 +304,65 @@ async def shutdown() -> None:
 
 @app.post("/query", response_model=QueryResponse)
 async def query(req: QueryRequest) -> QueryResponse:
-    """Query the knowledge base with LLM-generated answer."""
+    """Query the knowledge base with LLM-generated answer.
+
+    Uses CrossEncoder score threshold for dynamic result filtering
+    when available, falling back to top-k behavior otherwise.
+    """
     start_time = time.time()
-    logger.info("Query: kb_id=%s top_k=%d query='%s'", req.kb_id, req.top_k, req.query[:80])
+    config = get_config()
+
+    # Resolve threshold: request override > config default
+    effective_threshold = (
+        req.score_threshold
+        if req.score_threshold is not None
+        else config.reranker.score_threshold
+    )
+
+    logger.info(
+        "Query: kb_id=%s top_k=%d threshold=%.2f query='%s'",
+        req.kb_id, req.top_k, effective_threshold, req.query[:80],
+    )
 
     retriever = _get_retriever()
     db_store = _get_db_store()
 
-    results = retriever.retrieve(req.query, top_k=req.top_k, filters={"kb_id": req.kb_id})
-    logger.info("Retrieved %d results for query", len(results))
+    # Fetch larger candidate pool for threshold-based filtering
+    fetch_k = req.top_k * config.reranker.candidate_multiplier
+    results = retriever.retrieve(req.query, top_k=fetch_k, filters={"kb_id": req.kb_id})
+    logger.info("Retrieved %d candidates (fetch_k=%d)", len(results), fetch_k)
 
-    # Rerank
+    # Rerank with threshold
     reranker = _get_reranker()
     if reranker is not None and len(results) > 1:
         chunk_ids = [r["id"] for r in results]
         texts = [_get_chunk_content(cid, db_store) for cid in chunk_ids]
-        reranked = reranker.rerank(req.query, texts)
-        results = [results[idx] for idx, _ in reranked]
-        for i, (_, score) in enumerate(reranked):
-            results[i]["score"] = score
-        logger.info("Reranked %d results", len(results))
+        idx_to_result = {i: dict(results[i]) for i in range(len(results))}
+
+        reranked = reranker.rerank(req.query, texts, score_threshold=effective_threshold)
+
+        # Fallback: if threshold filters everything, use top 3 unfiltered
+        if not reranked:
+            logger.warning(
+                "Threshold %.2f filtered all %d results; falling back to top 3",
+                effective_threshold, len(texts),
+            )
+            reranked = reranker.rerank(req.query, texts, score_threshold=0.0)[:3]
+
+        # Reconstruct results with cross-encoder scores, cap to top_k
+        results = []
+        for idx, score in reranked[:req.top_k]:
+            r = idx_to_result[idx]
+            r["score"] = score
+            results.append(r)
+
+        logger.info(
+            "Reranked: %d pass threshold >= %.2f (returning top %d)",
+            len(reranked), effective_threshold, len(results),
+        )
+    else:
+        # No reranker: just cap results to top_k
+        results = results[:req.top_k]
 
     sources = []
     for result in results:
@@ -343,14 +382,14 @@ async def query(req: QueryRequest) -> QueryResponse:
             f"[Source {i+1}]\n{source.content}"
             for i, source in enumerate(sources)
         )
-        prompt = f"""Based on the following context, answer the question.
-
-Context:
-{context}
-
-Question: {req.query}
-
-Answer:"""
+        prompt = (
+            "Based on the following context, answer the question comprehensively. "
+            "Include ALL relevant items, facts, or entities mentioned in the context. "
+            "Do not omit any information that is supported by the sources.\n\n"
+            f"Context:\n{context}\n\n"
+            f"Question: {req.query}\n\n"
+            "Answer:"
+        )
     else:
         prompt = req.query
 
@@ -362,7 +401,7 @@ Answer:"""
         raise HTTPException(status_code=503, detail=str(e))
 
     latency_ms = int((time.time() - start_time) * 1000)
-    logger.info("Query completed: latency=%dms", latency_ms)
+    logger.info("Query completed: latency=%dms sources=%d", latency_ms, len(sources))
 
     return QueryResponse(
         query=req.query,

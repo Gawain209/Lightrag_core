@@ -37,12 +37,16 @@ class ScoreReranker(BaseReranker):
         except Exception as e:
             logger.warning("Failed to load cross-encoder %s: %s — using random reranker", model_name, e)
 
-    def rerank(self, query: str, documents: List[str]) -> List[tuple[int, float]]:
+    def rerank(
+        self, query: str, documents: List[str], score_threshold: float = 0.0
+    ) -> List[tuple[int, float]]:
         """Rerank documents based on relevance to the query.
 
         Args:
             query: The search query.
             documents: List of document texts to rerank.
+            score_threshold: Minimum relevance score (0-1). Documents below this
+                threshold are filtered out. Default 0.0 = no filtering.
 
         Returns:
             List of (index, score) tuples, sorted by score descending.
@@ -55,7 +59,10 @@ class ScoreReranker(BaseReranker):
             pairs = [[query, doc] for doc in documents]
             scores = self._model.predict(pairs)
             indexed_scores = [(i, float(score)) for i, score in enumerate(scores)]
-            return sorted(indexed_scores, key=lambda x: x[1], reverse=True)
+            indexed_scores.sort(key=lambda x: x[1], reverse=True)
+            if score_threshold > 0.0:
+                indexed_scores = [(i, s) for i, s in indexed_scores if s >= score_threshold]
+            return indexed_scores
 
         # Fallback: random scores
         rng = np.random.default_rng(seed=42)

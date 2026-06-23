@@ -10,7 +10,11 @@ class QueryRequest(BaseModel):
 
     kb_id: str = Field("default", description="Knowledge base ID")
     query: str = Field(..., min_length=1, description="The search query")
-    top_k: int = Field(5, ge=1, le=100, description="Number of results to return")
+    top_k: int = Field(10, ge=1, le=200, description="Maximum results to return")
+    score_threshold: float | None = Field(
+        None, ge=0.0, le=1.0,
+        description="Minimum relevance score for reranker. Uses config default if not set."
+    )
 
 
 class SourceResult(BaseModel):
