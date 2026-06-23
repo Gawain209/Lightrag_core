@@ -336,12 +336,12 @@ async def query(req: QueryRequest) -> QueryResponse:
             )
         )
 
-    context = "\n\n".join(
-        f"[Source {i+1}]\n{source.content}"
-        for i, source in enumerate(sources)
-    )
-
-    prompt = f"""Based on the following context, answer the question.
+    if sources:
+        context = "\n\n".join(
+            f"[Source {i+1}]\n{source.content}"
+            for i, source in enumerate(sources)
+        )
+        prompt = f"""Based on the following context, answer the question.
 
 Context:
 {context}
@@ -349,6 +349,8 @@ Context:
 Question: {req.query}
 
 Answer:"""
+    else:
+        prompt = req.query
 
     try:
         llm = _get_llm()

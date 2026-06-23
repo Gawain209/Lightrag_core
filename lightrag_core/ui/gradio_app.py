@@ -75,8 +75,11 @@ def rag_chat(message: str, history: list, kb_id: str) -> str:
     all context comes from vector search results.
     """
     if not kb_id:
-        yield "Please create a knowledge base first."
-        return
+        choices = _ensure_default_kb()
+        if not choices:
+            yield "Cannot create a knowledge base. Check that the API server is running."
+            return
+        kb_id = choices[0][1]
 
     try:
         data = _api("/query", method="POST", json={
