@@ -86,6 +86,23 @@ class SQLiteStore:
                 }
             return None
 
+    def list_all_chunks_with_kb(self) -> List[Dict[str, Any]]:
+        """List all chunks with their knowledge base ID.
+
+        Returns:
+            List of dicts with keys: id, content, kb_id.
+        """
+        with self.Session() as session:
+            rows = (
+                session.query(ChunkModel.id, ChunkModel.content, DocumentModel.kb_id)
+                .join(DocumentModel, ChunkModel.doc_id == DocumentModel.id)
+                .all()
+            )
+            return [
+                {"id": row.id, "content": row.content, "kb_id": row.kb_id}
+                for row in rows
+            ]
+
     def list_knowledge_bases(self) -> List[Dict[str, Any]]:
         """List all knowledge bases."""
         with self.Session() as session:

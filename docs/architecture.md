@@ -117,8 +117,25 @@ BaseReranker
 
 实现：
 
-* BGEReranker
-* CrossEncoderReranker
+* ScoreReranker (BGE-Reranker CrossEncoder)
+
+当前状态：
+
+已集成到 /query 流水线，HybridRetriever → Reranker → Context Builder
+
+实现细节：
+
+使用 `sentence_transformers.CrossEncoder("BAAI/bge-reranker-base")`，通过 `model.predict([[query, doc], ...])` 对每个 (query, document) 对打分，按分数重排检索结果。模型加载失败时回退到原始检索顺序（附带随机评分）。
+
+配置：
+
+```yaml
+reranker:
+  enabled: true
+  model: BAAI/bge-reranker-base
+```
+
+环境变量: `LIGHTRAG_RERANKER_ENABLED`
 
 ---
 

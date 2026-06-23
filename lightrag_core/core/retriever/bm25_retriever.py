@@ -3,7 +3,7 @@
 import math
 import re
 from collections import Counter
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from lightrag_core.core import BaseRetriever
 
@@ -26,6 +26,7 @@ class BM25Retriever(BaseRetriever):
         self._b = b
         self._documents: Dict[str, str] = {}  # id -> text
         self._tokenized: Dict[str, List[str]] = {}  # id -> tokens
+        self._metadata: Dict[str, Dict[str, Any]] = {}  # id -> metadata
         self._avg_doc_len = 0.0
         self._total_docs = 0
 
@@ -33,28 +34,38 @@ class BM25Retriever(BaseRetriever):
         """Tokenize text into lowercase words."""
         return re.findall(r"\b\w+\b", text.lower())
 
-    def add_document(self, doc_id: str, text: str) -> None:
+    def add_document(
+        self, doc_id: str, text: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Add a document to the index.
 
         Args:
             doc_id: Document ID.
             text: Document text.
+            metadata: Optional metadata for filtering (e.g. kb_id).
         """
         self._documents[doc_id] = text
         tokens = self._tokenize(text)
         self._tokenized[doc_id] = tokens
+        self._metadata[doc_id] = metadata or {}
 
         # Update average document length
         total_len = sum(len(t) for t in self._tokenized.values())
         self._total_docs = len(self._tokenized)
         self._avg_doc_len = total_len / self._total_docs if self._total_docs > 0 else 0
 
-    def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
         """Retrieve documents using BM25 scoring.
 
         Args:
             query: Search query.
             top_k: Number of results to return.
+            filters: Optional exact-match metadata filters (e.g. {"kb_id": "xxx"}).
 
         Returns:
             List of retrieval results with scores.
@@ -88,9 +99,18 @@ class BM25Retriever(BaseRetriever):
             if score > 0:
                 scores[doc_id] = score
 
-        # Sort by score and return top-k
+        # Sort by score
         sorted_results = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        return [
-            {"id": doc_id, "score": score}
-            for doc_id, score in sorted_results[:top_k]
-        ]
+
+        results = []
+        for doc_id, score in sorted_results:
+            # Apply metadata filters
+            if filters:
+                meta = self._metadata.get(doc_id, {})
+                if not all(meta.get(key) == value for key, value in filters.items()):
+                    continue
+            results.append({"id": doc_id, "score": score})
+            if len(results) >= top_k:
+                break
+
+        return results

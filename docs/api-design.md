@@ -165,7 +165,7 @@ POST /knowledge-bases/{kb_id}/documents
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| file | File | Yes | Document file (pdf, docx, txt, md) |
+| file | File | Yes | Document file (pdf, docx, txt, md, csv, json, html) |
 | title | string | No | Document title |
 
 **Response:**

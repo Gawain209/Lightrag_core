@@ -3,7 +3,7 @@
 Uses Reciprocal Rank Fusion (RRF) to merge results.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from lightrag_core.core import BaseEmbedding, BaseRetriever, BaseVectorStore
 from lightrag_core.core.retriever.bm25_retriever import BM25Retriever
@@ -39,30 +39,39 @@ class HybridRetriever(BaseRetriever):
         self._bm25 = bm25 or BM25Retriever()
         self._k = k
 
-    def add_document(self, doc_id: str, text: str) -> None:
+    def add_document(self, doc_id: str, text: str, metadata: Dict[str, Any] | None = None) -> None:
         """Add a document to the BM25 index.
 
         Args:
             doc_id: Document ID.
             text: Document text.
+            metadata: Optional metadata for filtering (e.g. kb_id).
         """
-        self._bm25.add_document(doc_id, text)
+        self._bm25.add_document(doc_id, text, metadata=metadata)
 
-    def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
         """Retrieve documents using hybrid search.
 
         Args:
             query: Search query.
             top_k: Number of results to return.
+            filters: Optional exact-match metadata filters passed to both retrievers.
 
         Returns:
             List of retrieval results with fused scores.
         """
         # Get vector results
-        vector_results = self._vector_retriever.retrieve(query, top_k=top_k * 2)
+        vector_results = self._vector_retriever.retrieve(
+            query, top_k=top_k * 2, filters=filters
+        )
 
         # Get BM25 results
-        bm25_results = self._bm25.retrieve(query, top_k=top_k * 2)
+        bm25_results = self._bm25.retrieve(query, top_k=top_k * 2, filters=filters)
 
         # RRF fusion
         scores: Dict[str, float] = {}

@@ -14,22 +14,18 @@
 
 MVP
 
-预计：
+状态：
 
-2~3 周
-
-目标：
-
-完成最小可用 RAG。
+✅ 已完成
 
 功能：
 
-* 文档导入
-* Fixed Chunk
-* BGE Embedding
-* FAISS 检索
-* Ollama 集成
-* Query API
+* ✅ 文档导入
+* ✅ Fixed Chunk
+* ✅ BGE Embedding
+* ✅ FAISS 检索
+* ✅ Ollama 集成
+* ✅ Query API
 
 交付：
 
@@ -41,17 +37,19 @@ Library Mode
 
 Core RAG
 
-预计：
+状态：
 
-1 个月
+✅ 已完成
 
 新增：
 
-* BM25
-* Hybrid Search
-* Reranker
-* Context Builder
-* 多知识库
+* ✅ BM25
+* ✅ Hybrid Search
+* ✅ Reranker (BGE-Reranker CrossEncoder)
+* ✅ Context Builder
+* ✅ 多知识库
+* ✅ 多格式解析器 (txt, md, pdf, docx, csv, json, html)
+* ✅ Gradio Web UI
 
 交付：
 

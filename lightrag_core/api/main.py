@@ -27,9 +27,15 @@ from lightrag_core.core.chunker.fixed_chunker import FixedSizeChunker
 from lightrag_core.core.embedding.bge_embedding import BGEmbedding
 from lightrag_core.core.llm.deepseek_provider import DeepSeekProvider
 from lightrag_core.core.llm.ollama_provider import OllamaProvider
+from lightrag_core.core.retriever.hybrid_retriever import HybridRetriever
 from lightrag_core.core.retriever.vector_retriever import VectorRetriever
+from lightrag_core.core.reranker.score_reranker import ScoreReranker
 from lightrag_core.ingestion.parser.pdf_parser import PDFParser
 from lightrag_core.ingestion.parser.text_parser import TextParser
+from lightrag_core.ingestion.parser.docx_parser import WordParser
+from lightrag_core.ingestion.parser.csv_parser import CSVParser
+from lightrag_core.ingestion.parser.json_parser import JSONParser
+from lightrag_core.ingestion.parser.html_parser import HTMLParser
 from lightrag_core.storage.metadata.sqlite_store import SQLiteStore
 from lightrag_core.storage.vectorstore.faiss_store import FaissStore
 
@@ -41,9 +47,10 @@ app = FastAPI(title="LightRAG-Core", version="0.1.0")
 _db_store: Optional[SQLiteStore] = None
 _embedding: Optional[BGEmbedding] = None
 _vector_store: Optional[FaissStore] = None
-_retriever: Optional[VectorRetriever] = None
+_retriever: Optional[HybridRetriever] = None
 _chunker: Optional[FixedSizeChunker] = None
 _llm: Optional[OllamaProvider] = None
+_reranker: Optional[ScoreReranker] = None
 
 # Thread-safety: locks for lazy singleton init and shared mutable state.
 # Lazy initializers call each other, so the init lock must be re-entrant.
@@ -170,19 +177,44 @@ def _get_vector_store() -> FaissStore:
     return _vector_store
 
 
-def _get_retriever() -> VectorRetriever:
-    """Get or initialize the retriever."""
+def _get_retriever() -> HybridRetriever:
+    """Get or initialize the hybrid retriever (vector + BM25)."""
     global _retriever
     if _retriever is None:
         with _init_lock:
             if _retriever is None:
                 embedding = _get_embedding()
                 vector_store = _get_vector_store()
-                _retriever = VectorRetriever(
+                _retriever = HybridRetriever(
                     vector_store=vector_store,
                     embedding=embedding,
                 )
     return _retriever
+
+
+def _get_reranker() -> ScoreReranker | None:
+    """Get or initialize the reranker."""
+    global _reranker
+    if _reranker is None:
+        with _init_lock:
+            if _reranker is None:
+                config = get_config()
+                if config.reranker.enabled:
+                    logger.info("Initializing reranker: model=%s", config.reranker.model)
+                    _reranker = ScoreReranker(model_name=config.reranker.model)
+    return _reranker
+
+
+def _build_bm25_index() -> None:
+    """Populate the BM25 index from all chunks in SQLite."""
+    db_store = _get_db_store()
+    chunks = db_store.list_all_chunks_with_kb()
+    if not chunks:
+        return
+    retriever = _get_retriever()
+    for row in chunks:
+        retriever.add_document(row["id"], row["content"], metadata={"kb_id": row["kb_id"]})
+    logger.info("BM25 index built: %d chunks loaded", len(chunks))
 
 
 def _get_chunker() -> FixedSizeChunker:
@@ -234,12 +266,18 @@ def _log_startup() -> None:
                 config.database.type, config.database.path)
     if config.debug:
         logger.info("Debug mode: ON")
-    # Eager-init embedding to surface load failures at startup
+    # Eager-init embedding & retriever to surface load failures at startup
     try:
         emb = _get_embedding()
         logger.info("Embedding model loaded: dimension=%d", emb.dimension)
     except Exception:
         logger.warning("Embedding model not available — will use random fallback vectors")
+    # Pre-populate BM25 index from persistent chunks
+    _build_bm25_index()
+    # Eager-init reranker
+    reranker = _get_reranker()
+    if reranker is not None:
+        logger.info("Reranker initialized: model=%s", config.reranker.model)
 
 
 @app.on_event("startup")
@@ -273,6 +311,17 @@ async def query(req: QueryRequest) -> QueryResponse:
 
     results = retriever.retrieve(req.query, top_k=req.top_k, filters={"kb_id": req.kb_id})
     logger.info("Retrieved %d results for query", len(results))
+
+    # Rerank
+    reranker = _get_reranker()
+    if reranker is not None and len(results) > 1:
+        chunk_ids = [r["id"] for r in results]
+        texts = [_get_chunk_content(cid, db_store) for cid in chunk_ids]
+        reranked = reranker.rerank(req.query, texts)
+        results = [results[idx] for idx, _ in reranked]
+        for i, (_, score) in enumerate(reranked):
+            results[i]["score"] = score
+        logger.info("Reranked %d results", len(results))
 
     sources = []
     for result in results:
@@ -338,6 +387,11 @@ async def index_documents(req: IndexRequest) -> IndexResponse:
     vectors = embedding.embed(req.texts)
     vector_store.add(vectors, ids, metadatas=[{"kb_id": req.kb_id} for _ in ids])
     logger.info("Indexed %d vectors into kb_id=%s", len(vectors), req.kb_id)
+
+    # Sync BM25 index
+    retriever = _get_retriever()
+    for doc_id, text in zip(ids, req.texts):
+        retriever.add_document(doc_id, text, metadata={"kb_id": req.kb_id})
 
     with _chunk_lock:
         for doc_id, text in zip(ids, req.texts):
@@ -440,6 +494,11 @@ async def upload_document(req: DocumentUploadRequest) -> DocumentResponse:
         vectors = embedding.embed(chunks)
         vector_store.add(vectors, chunk_ids, metadatas=[{"kb_id": req.kb_id} for _ in chunk_ids])
 
+    # Sync BM25 index
+    retriever = _get_retriever()
+    for chunk_id, chunk_text in zip(chunk_ids, chunks):
+        retriever.add_document(chunk_id, chunk_text, metadata={"kb_id": req.kb_id})
+
     doc = db_store.get_document(doc_id)
     logger.info("Document indexed: doc_id=%s chunks=%d title='%s'", doc_id, len(chunks), req.title)
 
@@ -458,7 +517,7 @@ async def upload_file(
 ) -> DocumentResponse:
     """Upload a file via multipart/form-data.
 
-    Supports: .txt, .md, .pdf
+    Supports: .txt, .md, .pdf, .docx, .csv, .json, .html, .htm
     Pipeline: upload -> parse -> chunk -> embed -> store
     """
     filename = file.filename or "untitled"
@@ -475,25 +534,54 @@ async def upload_file(
         logger.info("Auto-created knowledge base: kb_id=%s", kb_id)
 
     suffix = Path(filename).suffix.lower()
+    file_bytes = await file.read()
 
-    if suffix == ".pdf":
-        import os
-        import tempfile
+    import os
+    import tempfile
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(await file.read())
+    if suffix in (".pdf", ".docx"):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(file_bytes)
             tmp_path = tmp.name
-
         try:
-            pdf_parser = PDFParser()
-            text = pdf_parser.parse(tmp_path)
-            logger.info("PDF parsed: %d characters", len(text))
+            if suffix == ".pdf":
+                parser = PDFParser()
+            else:
+                parser = WordParser()
+            text = parser.parse(tmp_path)
+            logger.info("%s parsed: %d characters", suffix, len(text))
+        finally:
+            os.unlink(tmp_path)
+    elif suffix == ".html" or suffix == ".htm":
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+        try:
+            text = HTMLParser().parse(tmp_path)
+            logger.info("HTML parsed: %d characters", len(text))
+        finally:
+            os.unlink(tmp_path)
+    elif suffix in (".csv", ".json"):
+        try:
+            content = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="File encoding must be UTF-8")
+        with tempfile.NamedTemporaryFile(
+            delete=False, mode="w", suffix=suffix, encoding="utf-8"
+        ) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        try:
+            if suffix == ".csv":
+                text = CSVParser().parse(tmp_path)
+            else:
+                text = JSONParser().parse(tmp_path)
+            logger.info("%s parsed: %d characters", suffix, len(text))
         finally:
             os.unlink(tmp_path)
     else:
-        content = await file.read()
         try:
-            text = content.decode("utf-8")
+            text = file_bytes.decode("utf-8")
         except UnicodeDecodeError:
             raise HTTPException(status_code=400, detail="File encoding must be UTF-8")
 
@@ -531,6 +619,11 @@ async def upload_file(
             chunk_ids,
             metadatas=[{"kb_id": kb_id} for _ in chunk_ids],
         )
+
+    # Sync BM25 index
+    retriever = _get_retriever()
+    for chunk_id, chunk_text in zip(chunk_ids, chunks):
+        retriever.add_document(chunk_id, chunk_text, metadata={"kb_id": kb_id})
 
     doc = db_store.get_document(doc_id)
     logger.info("File indexed: doc_id=%s chunks=%d filename='%s'", doc_id, len(chunks), filename)

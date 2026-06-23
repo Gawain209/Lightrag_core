@@ -113,12 +113,21 @@ def upload_file(file_path: str | None, kb_id: str, title: str) -> str:
     path = Path(file_path)
     suffix = path.suffix.lower()
 
-    if suffix == ".pdf":
+    # Formats that need parser-based extraction: upload via multipart to /documents/upload
+    if suffix in (".pdf", ".docx", ".html", ".htm", ".csv", ".json"):
+        mime_map = {
+            ".pdf": "application/pdf",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".html": "text/html",
+            ".htm": "text/html",
+            ".csv": "text/csv",
+            ".json": "application/json",
+        }
         try:
             with open(file_path, "rb") as f:
                 resp = _client.post(
                     f"{API_BASE}/documents/upload",
-                    files={"file": (path.name, f, "application/pdf")},
+                    files={"file": (path.name, f, mime_map.get(suffix, "application/octet-stream"))},
                     params={"kb_id": kb_id},
                     timeout=120,
                 )
@@ -218,7 +227,7 @@ def create_app() -> gr.Blocks:
                 with gr.Accordion("Upload File", open=False):
                     f_input = gr.File(
                         label="Select file",
-                        file_types=[".txt", ".md", ".pdf"],
+                        file_types=[".txt", ".md", ".pdf", ".docx", ".csv", ".json", ".html", ".htm"],
                     )
                     f_title = gr.Textbox(label="Title (defaults to filename)")
                     f_msg = gr.Markdown("")

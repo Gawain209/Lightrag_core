@@ -59,20 +59,20 @@ python -m black . --check     # 格式检查
 | Embedding | `lightrag_core/core/embedding/` | `BGEmbedding`（BGE-M3，无模型时回退到随机向量） |
 | Chunker | `lightrag_core/core/chunker/` | `FixedSizeChunker`（固定大小 + overlap） |
 | Retriever | `lightrag_core/core/retriever/` | `VectorRetriever`、`BM25Retriever`、`HybridRetriever` |
-| Reranker | `lightrag_core/core/reranker/` | `ScoreReranker`（原型） |
+| Reranker | `lightrag_core/core/reranker/` | `ScoreReranker` (BGE-Reranker CrossEncoder，已集成到 /query) |
 | LLM | `lightrag_core/core/llm/` | `OllamaProvider`、`DeepSeekProvider`（OpenAI 兼容） |
 | 向量存储 | `lightrag_core/storage/vectorstore/` | `FaissStore`（Qdrant 规划中） |
 | 元数据存储 | `lightrag_core/storage/metadata/` | `SQLiteStore`（SQLAlchemy ORM） |
-| 解析器 | `lightrag_core/ingestion/parser/` | `TextParser`、`PDFParser`（实验性） |
+| 解析器 | `lightrag_core/ingestion/parser/` | `TextParser`、`PDFParser`、`WordParser`、`CSVParser`、`JSONParser`、`HTMLParser` |
 | API | `lightrag_core/api/` | FastAPI 应用 + Pydantic v2 schemas |
 | 配置 | `lightrag_core/config/settings.py` | YAML + 环境变量（env 优先级 > YAML > 默认值） |
 | Web UI | `lightrag_core/ui/` | Gradio Web UI（chat、文件上传、知识库管理），thin layer on API |
 
 ### 数据流
 
-**索引流水线:** Document → Parser → Chunker → Embedding → VectorStore + SQLite metadata
+**索引流水线:** Document → Parser (txt/md/pdf/docx/csv/json/html) → Chunker → Embedding → VectorStore + SQLite metadata + BM25 index
 
-**查询流水线:** Question → Embedding → VectorSearch → (可选 BM25/Hybrid) → (可选 Rerank) → Context → LLM → Answer + Sources
+**查询流水线:** Question → Embedding → HybridRetriever (Vector + BM25 + RRF fusion) → ScoreReranker (BGE-Reranker CrossEncoder) → Context → LLM → Answer + Sources
 
 ### API 层关键模式
 

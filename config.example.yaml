@@ -30,4 +30,8 @@ database:
   type: sqlite
   path: lightrag.db
 
+reranker:
+  enabled: true
+  model: BAAI/bge-reranker-base
+
 debug: false

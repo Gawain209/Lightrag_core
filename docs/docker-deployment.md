@@ -52,6 +52,7 @@ All configuration can be overridden via environment variables:
 | `LIGHTRAG_LLM_TIMEOUT` | `120` | Request timeout (seconds) |
 | `LIGHTRAG_EMBEDDING_MODEL` | `BAAI/bge-m3` | Embedding model name |
 | `LIGHTRAG_VECTOR_STORE_TYPE` | `faiss` | Vector store: `faiss` or `qdrant` |
+| `LIGHTRAG_RERANKER_ENABLED` | `true` | Enable/disable reranker (`true` / `false`) |
 | `LIGHTRAG_DB_PATH` | `lightrag.db` | SQLite database path |
 | `LIGHTRAG_DEBUG` | `false` | Debug mode |
 

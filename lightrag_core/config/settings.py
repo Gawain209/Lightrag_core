@@ -56,6 +56,14 @@ class ChunkerConfig:
 
 
 @dataclass
+class RerankerConfig:
+    """Reranker configuration."""
+
+    enabled: bool = True
+    model: str = "BAAI/bge-reranker-base"
+
+
+@dataclass
 class DatabaseConfig:
     """Database configuration."""
 
@@ -72,6 +80,7 @@ class AppConfig:
     vector_store: VectorStoreConfig = field(default_factory=VectorStoreConfig)
     chunker: ChunkerConfig = field(default_factory=ChunkerConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
+    reranker: RerankerConfig = field(default_factory=RerankerConfig)
     debug: bool = False
 
 
@@ -118,6 +127,10 @@ def _apply_env_overrides(config: AppConfig) -> AppConfig:
     # Database
     if db_path := os.getenv("LIGHTRAG_DB_PATH"):
         config.database.path = db_path
+
+    # Reranker
+    if reranker_enabled := os.getenv("LIGHTRAG_RERANKER_ENABLED"):
+        config.reranker.enabled = reranker_enabled.lower() in ("true", "1", "yes")
 
     # Debug
     if debug := os.getenv("LIGHTRAG_DEBUG"):
@@ -179,6 +192,11 @@ def load_config(config_path: Optional[str] = None) -> AppConfig:
             for key, value in db_data.items():
                 if hasattr(config.database, key):
                     setattr(config.database, key, value)
+
+        if reranker_data := yaml_data.get("reranker"):
+            for key, value in reranker_data.items():
+                if hasattr(config.reranker, key):
+                    setattr(config.reranker, key, value)
 
         if "debug" in yaml_data:
             config.debug = yaml_data["debug"]

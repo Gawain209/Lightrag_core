@@ -6,6 +6,7 @@ from lightrag_core.core import (
     BaseRetriever,
     BaseVectorStore,
 )
+from lightrag_core.core.reranker import BaseReranker
 from lightrag_core.storage.vectorstore.faiss_store import FaissStore
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "BaseVectorStore",
     "BaseRetriever",
     "BaseLLM",
+    "BaseReranker",
     "FaissStore",
 ]
